@@ -52,7 +52,7 @@ public:
 		return m_thread_count;
 	}
 
-	void executeJob(WorkerFunction function)
+	void execute(WorkerFunction function)
 	{
 		for (Worker& worker : m_workers) {
 			worker.setJob(function);
@@ -61,7 +61,7 @@ public:
 		start();
 	}
 
-	void waitJobDone()
+	void waitExecutionDone()
 	{
 		std::unique_lock<std::mutex> ul(m_condition_mutex);
 		m_condition.wait(ul, [&]{ return m_done_count == m_thread_count; });
@@ -82,14 +82,14 @@ private:
 	void lockAllAtReady()
 	{
 		for (Worker& worker : m_workers) {
-			worker.lock_ready();
+			worker.lockReady();
 		}
 	}
 
 	void unlockAllAtReady()
 	{
 		for (Worker& worker : m_workers) {
-			worker.unlock_ready();
+			worker.unlockReady();
 		}
 	}
 
@@ -103,7 +103,7 @@ private:
 	void unlockAllAtDone()
 	{
 		for (Worker& worker : m_workers) {
-			worker.unlock_done();
+			worker.unlockDone();
 		}
 	}
 

@@ -9,7 +9,7 @@ namespace swrm
 
 class Swarm;
 
-using WorkerFunction = std::function<void(uint32_t)>;
+using WorkerFunction = std::function<void(uint32_t, uint32_t)>;
 
 class Worker
 {
@@ -19,18 +19,20 @@ public:
 
 	void startThread();
 
-	void lock_ready();
+	void lockReady();
 	void lockDone();
-	void unlock_ready();
-	void unlock_done();
+	void unlockReady();
+	void unlockDone();
 
 	void setJob(WorkerFunction job);
 	void stop();
 	void join();
 
 private:
-	bool running;
-	uint32_t id;
+	bool m_running;
+	const uint32_t m_id;
+	const uint32_t m_worker_count;
+
 	Swarm* m_swarm;
 	std::thread m_thread;
 	WorkerFunction m_job;
