@@ -7,6 +7,8 @@
 #include <atomic>
 #include <iostream>
 #include <chrono>
+#include <condition_variable>
+
 #include "worker.hpp"
 
 
@@ -17,6 +19,8 @@ public:
 		: m_thread_count(thread_count)
 		, m_done_count(0U)
 		, m_waiting_others(thread_count)
+		, m_condition()
+		, m_condition_mutex()
 	{
 		for (uint32_t i(0); i < thread_count; ++i) {
 			std::cout << "Created Worker[" << i << "]" << std::endl;
@@ -55,7 +59,11 @@ public:
 
 	void notifyWorkerDone()
 	{
-		++m_done_count;
+		{
+			std::lock_guard<std::mutex> lg(m_condition_mutex);
+			++m_done_count;
+		}
+		m_condition.notify_one();
 	}
 
 	void notifyReady()
@@ -65,8 +73,9 @@ public:
 
 	void waitJobDone()
 	{
-		while (m_done_count < m_thread_count) {}// std::cout << "WAITING" << std::endl;
-	
+		std::unique_lock<std::mutex> ul(m_condition_mutex);
+		m_condition.wait(ul, [&]{ return m_done_count == m_thread_count; });
+
 		lockAllAtReady();
 		unlockAllAtDone();
 	}
@@ -85,7 +94,8 @@ private:
 
 	std::atomic<uint32_t> m_done_count;
 	std::atomic<uint32_t> m_waiting_others;
-
+	std::condition_variable m_condition;
+	std::mutex m_condition_mutex;
 	std::list<Worker> m_workers;
 
 	void lockAllAtReady()
