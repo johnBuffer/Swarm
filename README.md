@@ -89,7 +89,7 @@ int main()
 
 1D mean filter on **100.000.000** values with a kernel width of **64** on an *i9-9900K*
 
-|Thread count|Execution time|
-|------------|--------------|
-|1           |3.1 seconds   |
-|16          |0.28 seconds  | 
+|Thread count|Execution time|Speed Up|
+|------------|--------------|--------|
+|1           |3.1 seconds   |x1      |
+|16          |0.28 seconds  |x11     |
