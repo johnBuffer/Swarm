@@ -1,4 +1,4 @@
-# swarm
+# Swarm
 
 Multithreading lib
 
@@ -26,7 +26,7 @@ void job(uint32_t worker_id, uint32_t worker_count)
     // First value for the thread
     const uint32_t start_index = worker_id * step;
     // Last value
-    const uint32_t end_index = (worker_id == worker_count - 1) ? start_index + step : vec_size - 1;
+    const uint32_t end_index = (worker_id < worker_count - 1) ? start_index + step : vec_size - 1;
     // The actuat loop
     for (uint32_t i(start_index); i < end_index; ++i)
     {
@@ -84,3 +84,12 @@ int main()
     return 0;
 }
 ```
+
+## Performance
+
+1D mean filter on **100.000.000** values with a kernel width of **64** on an *i9-9900K*
+
+|Thread count|Execution time|
+|------------|--------------|
+|1           |3.1 seconds   |
+|16          |0.28 seconds  | 
