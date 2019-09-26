@@ -2,6 +2,9 @@
 
 #include "swarm.hpp"
 
+namespace swrm
+{
+
 Worker::Worker()
 	: m_swarm(nullptr)
 	, m_job(nullptr)
@@ -80,4 +83,6 @@ void Worker::waitReady()
 	m_swarm->notifyReady();
 	lock_ready();
 	unlock_ready();
+}
+
 }

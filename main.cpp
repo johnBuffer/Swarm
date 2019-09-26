@@ -52,7 +52,7 @@ struct Compute
 		swarm.waitJobDone();
 	}
 
-	Swarm swarm;
+	swrm::Swarm swarm;
 	std::vector<float> vec1;
 	std::vector<float> vec2;
 };

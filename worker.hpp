@@ -4,11 +4,12 @@
 #include <thread>
 #include <mutex>
 
+namespace swrm
+{
 
 class Swarm;
 
 using WorkerFunction = std::function<void(uint32_t)>;
-
 
 class Worker
 {
@@ -40,3 +41,5 @@ private:
 	void run();
 	void waitReady();
 };
+
+}

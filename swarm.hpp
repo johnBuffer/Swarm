@@ -12,6 +12,9 @@
 #include "worker.hpp"
 
 
+namespace swrm
+{
+
 class Swarm
 {
 public:
@@ -49,26 +52,13 @@ public:
 		return m_thread_count;
 	}
 
-	void start()
+	void executeJob(WorkerFunction function)
 	{
-		m_done_count = 0;
-		while (m_waiting_others) {}
-		lockAllAtDone();
-		unlockAllAtReady();
-	}
-
-	void notifyWorkerDone()
-	{
-		{
-			std::lock_guard<std::mutex> lg(m_condition_mutex);
-			++m_done_count;
+		for (Worker& worker : m_workers) {
+			worker.setJob(function);
 		}
-		m_condition.notify_one();
-	}
 
-	void notifyReady()
-	{
-		--m_waiting_others;
+		start();
 	}
 
 	void waitJobDone()
@@ -78,15 +68,6 @@ public:
 
 		lockAllAtReady();
 		unlockAllAtDone();
-	}
-
-	void executeJob(WorkerFunction function)
-	{
-		for (Worker& worker : m_workers) {
-			worker.setJob(function);
-		}
-
-		start();
 	}
 
 private:
@@ -125,4 +106,30 @@ private:
 			worker.unlock_done();
 		}
 	}
+
+	void start()
+	{
+		m_done_count = 0;
+		while (m_waiting_others) {}
+		lockAllAtDone();
+		unlockAllAtReady();
+	}
+
+	void notifyWorkerDone()
+	{
+		{
+			std::lock_guard<std::mutex> lg(m_condition_mutex);
+			++m_done_count;
+		}
+		m_condition.notify_one();
+	}
+
+	void notifyReady()
+	{
+		--m_waiting_others;
+	}
+
+	friend Worker;
 };
+
+}
