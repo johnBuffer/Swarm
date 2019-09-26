@@ -1,6 +1,6 @@
 # swarm
 
-Thread pool lib
+Multithreading lib
 
 ## Usage
 
