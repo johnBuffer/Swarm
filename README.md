@@ -27,6 +27,7 @@ void job(uint32_t worker_id, uint32_t worker_count)
     const uint32_t start_index = worker_id * step;
     // Last value
     const uint32_t end_index = (worker_id < worker_count - 1) ? start_index + step : vec_size - 1;
+    
     // The actuat loop
     for (uint32_t i(start_index); i < end_index; ++i)
     {
