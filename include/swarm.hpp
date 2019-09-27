@@ -25,8 +25,7 @@ public:
 		, m_condition()
 		, m_condition_mutex()
 	{
-		for (uint32_t i(0); i < thread_count; ++i) {
-			std::cout << "Created Worker[" << i << "]" << std::endl;
+		for (uint32_t i(thread_count); i--;) {
 			m_workers.emplace_back(this, i);
 		}
 
