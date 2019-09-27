@@ -1,8 +1,26 @@
 # Swarm
 
-Multithreading lib
+Swarm is a **multithreading** library with no other dependancies than STL. It allows you to execute functions accross multiple threads.
 
 ## Usage
+
+The function to execute with Swarm need to have this signature : `void(uint32_t, uint32_t)`
+
+The first argument is the **executing thread's id** and the second is the **number of threads** currently working on the function.
+
+In order to wait for the funtion to end you need to call `waitExecutionDone`. This also allows you to run two Swarms on different functions **asynchronously**.
+
+```cpp
+swarm_1.execute(function_1);
+swarm_2.execute(function_2);
+
+// function_1 and function_2 are being processed at the same time
+
+swarm_1.waitExecutionDone();
+swarm_2.waitExecutionDone();
+```
+
+## Example
 
 ### 1. Include header
 ```cpp
