@@ -106,7 +106,7 @@ int main()
 
 ## Performance
 
-1D mean filter on **100.000.000** values with a kernel width of **64** on an *i9-9900K*
+1D naive mean filter on **100.000.000** values with a kernel width of **64** on an *i9-9900K*
 
 |Thread count|Execution time|Speed Up|
 |------------|--------------|--------|
