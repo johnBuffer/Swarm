@@ -10,7 +10,7 @@
 #include <condition_variable>
 
 #include "worker.hpp"
-
+#include "synchronizer.hpp"
 
 namespace swrm
 {
@@ -21,7 +21,7 @@ public:
 	Swarm(uint32_t thread_count)
 		: m_thread_count(thread_count)
 		, m_done_count(0U)
-		, m_waiting_others(thread_count)
+		, m_ready_count(0U)
 		, m_condition()
 		, m_condition_mutex()
 	{
@@ -30,22 +30,16 @@ public:
 			m_workers.emplace_back(this, i);
 		}
 
-		lockAllAtReady();
-
-		for (Worker& w : m_workers) {
-			w.startThread();
-		}
+		Synchronizer::lockAtReady(m_workers);
+		Synchronizer::createThreads(m_workers);
 	}
 
 	~Swarm()
 	{
-		for (Worker& w : m_workers) {
-			w.stop();
-		}
-		unlockAllAtReady();
-		for (Worker& w : m_workers) {
-			w.join();
-		}
+		Synchronizer::stop(m_workers);
+		Synchronizer::unlockAtDone(m_workers);
+		Synchronizer::unlockAtReady(m_workers);
+		Synchronizer::join(m_workers);
 	}
 
 	uint32_t getWorkerCount() const {
@@ -63,56 +57,28 @@ public:
 
 	void waitExecutionDone()
 	{
-		std::unique_lock<std::mutex> ul(m_condition_mutex);
-		m_condition.wait(ul, [&]{ return m_done_count == m_thread_count; });
-
-		lockAllAtReady();
-		unlockAllAtDone();
+		m_ready_count = 0U;
+		waitWorkersDone();
+		Synchronizer::lockAtReady(m_workers);
+		Synchronizer::unlockAtDone(m_workers);
 	}
 
 private:
 	const uint32_t m_thread_count;
 
 	std::atomic<uint32_t> m_done_count;
-	std::atomic<uint32_t> m_waiting_others;
+	std::atomic<uint32_t> m_ready_count;
+
 	std::condition_variable m_condition;
-	std::mutex m_condition_mutex;
-	std::list<Worker> m_workers;
-
-	void lockAllAtReady()
-	{
-		for (Worker& worker : m_workers) {
-			worker.lockReady();
-		}
-	}
-
-	void unlockAllAtReady()
-	{
-		for (Worker& worker : m_workers) {
-			worker.unlockReady();
-		}
-	}
-
-	void lockAllAtDone()
-	{
-		for (Worker& worker : m_workers) {
-			worker.lockDone();
-		}
-	}
-
-	void unlockAllAtDone()
-	{
-		for (Worker& worker : m_workers) {
-			worker.unlockDone();
-		}
-	}
+	std::mutex              m_condition_mutex;
+	std::list<Worker>       m_workers;
 
 	void start()
 	{
-		m_done_count = 0;
-		while (m_waiting_others) {}
-		lockAllAtDone();
-		unlockAllAtReady();
+		m_done_count = 0U;
+		waitWorkersReady();
+		Synchronizer::lockAtDone(m_workers);
+		Synchronizer::unlockAtReady(m_workers);
 	}
 
 	void notifyWorkerDone()
@@ -124,9 +90,25 @@ private:
 		m_condition.notify_one();
 	}
 
-	void notifyReady()
+	void notifyWorkerReady()
 	{
-		--m_waiting_others;
+		{
+			std::lock_guard<std::mutex> lg(m_condition_mutex);
+			++m_ready_count;
+		}
+		m_condition.notify_one();
+	}
+
+	void waitWorkersDone()
+	{
+		std::unique_lock<std::mutex> ul(m_condition_mutex);
+		m_condition.wait(ul, [&] { return m_done_count == m_thread_count; });
+	}
+
+	void waitWorkersReady()
+	{
+		std::unique_lock<std::mutex> ul(m_condition_mutex);
+		m_condition.wait(ul, [&] { return m_ready_count == m_thread_count; });
 	}
 
 	friend Worker;

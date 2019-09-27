@@ -17,7 +17,7 @@ public:
 	Worker();
 	Worker(Swarm* swarm, uint32_t worker_id);
 
-	void startThread();
+	void createThread();
 
 	void lockReady();
 	void lockDone();
@@ -42,6 +42,7 @@ private:
 
 	void run();
 	void waitReady();
+	void waitDone();
 };
 
 }

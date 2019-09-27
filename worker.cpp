@@ -22,7 +22,7 @@ Worker::Worker(Swarm* swarm, uint32_t worker_id)
 {
 }
 
-void Worker::startThread()
+void Worker::createThread()
 {
 	m_thread = std::thread(&Worker::run, this);
 }
@@ -38,9 +38,7 @@ void Worker::run()
 		
 		m_job(m_id, m_worker_count);
 
-		m_swarm->notifyWorkerDone();
-
-		lockDone();
+		waitDone();
 	}
 }
 
@@ -81,9 +79,16 @@ void Worker::join()
 
 void Worker::waitReady()
 {
-	m_swarm->notifyReady();
+	m_swarm->notifyWorkerReady();
 	lockReady();
 	unlockReady();
+}
+
+void Worker::waitDone()
+{
+	m_swarm->notifyWorkerDone();
+	lockDone();
+	unlockDone();
 }
 
 }

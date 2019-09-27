@@ -9,9 +9,9 @@
 struct Compute
 {
 	Compute()
-		: swarm(10)
+		: swarm(16)
 	{
-		uint32_t vec_size(100000000);
+		const uint32_t vec_size(100000000);
 		
 		vec1.resize(vec_size);
 		vec2.resize(vec_size);
@@ -29,7 +29,7 @@ struct Compute
 		const uint32_t start_index = worker_id * step;
 		const uint32_t end_index = (worker_id == worker_count - 1) ? data_size - 1 : start_index + step;
 		
-		uint32_t filter_width(64);
+		const uint32_t filter_width(64);
 
 		for (uint32_t i(start_index); i < end_index; ++i) {
 			float value = 0.0f;
