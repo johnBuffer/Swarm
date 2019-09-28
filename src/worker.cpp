@@ -19,6 +19,7 @@ Worker::Worker(Swarm* swarm)
 
 void Worker::createThread()
 {
+	lockReady();
 	m_thread = std::thread(&Worker::run, this);
 }
 

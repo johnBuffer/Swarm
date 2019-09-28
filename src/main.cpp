@@ -11,7 +11,7 @@ struct Compute
 	Compute()
 		: swarm(16)
 	{
-		const uint32_t vec_size(100000000);
+		const uint32_t vec_size(1000000);
 
 		vec1.resize(vec_size);
 		vec2.resize(vec_size);
@@ -34,7 +34,7 @@ struct Compute
 		for (uint32_t i(start_index); i < end_index; ++i) {
 			float value = 0.0f;
 			for (uint32_t k(0); k < filter_width; ++k) {
-				if (i >= filter_width / 2) {
+				if (i >= filter_width / 2 && i < end_index - filter_width / 2) {
 					value += vec1[i + k - filter_width / 2];
 				}
 			}
@@ -45,9 +45,9 @@ struct Compute
 
 	void sum()
 	{
-		swrm::WorkGroup group1 = swarm.execute([&](uint32_t worker_id, uint32_t worker_count) {job(worker_id, worker_count); }, 8);
-		swrm::WorkGroup group2 = swarm.execute([&](uint32_t worker_id, uint32_t worker_count) {job(worker_id, worker_count); }, 8);
+		swrm::WorkGroup group1 = swarm.execute([&](uint32_t worker_id, uint32_t worker_count) {job(worker_id, worker_count); }, 16);
 		group1.waitExecutionDone();
+		swrm::WorkGroup group2 = swarm.execute([&](uint32_t worker_id, uint32_t worker_count) {job(worker_id, worker_count); }, 16);
 		group2.waitExecutionDone();
 	}
 
@@ -69,7 +69,7 @@ int32_t main()
 
 	std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
 
-	std::cout << "Elapsed time: " << time_span.count() << " ms" << std::endl;
+	std::cout << "Elapsed time: " << time_span.count() << " s" << std::endl;
 
 	return 0;
 }

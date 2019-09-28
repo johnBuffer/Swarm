@@ -66,16 +66,16 @@ private:
 	void waitWorkersDone()
 	{
 		std::unique_lock<std::mutex> ul(m_condition_mutex);
-		m_condition.wait(ul, [&] { return m_done_count == m_group_size; });
+		m_condition.wait(ul, [this] { return m_done_count == m_group_size; });
 	}
 
 	void retrieveWorkers(std::list<Worker*>& available_workers)
 	{
-		for (uint32_t i(0U); i < m_group_size; ++i) {
+		for (uint32_t i(m_group_size); i--;) {
 			Worker* worker = available_workers.front();
-			worker->setJob(m_done_count++, this);
-			m_workers.push_back(worker);
 			available_workers.pop_front();
+			worker->setJob(i, this);
+			m_workers.push_back(worker);
 		}
 	}
 
@@ -98,6 +98,8 @@ public:
 	{
 		if (m_group) {
 			m_group->waitExecutionDone();
+		} else {
+			std::cout << "No threads" << std::endl;
 		}
 	}
 

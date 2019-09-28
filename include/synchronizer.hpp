@@ -9,13 +9,6 @@ namespace swrm
 class Synchronizer
 {
 public:
-	static void createThreads(std::list<Worker*>& workers)
-	{
-		for (Worker* worker : workers) {
-			worker->createThread();
-		}
-	}
-
 	static void lockAtReady(std::list<Worker*>& workers)
 	{
 		for (Worker* worker : workers) {
