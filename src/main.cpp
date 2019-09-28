@@ -12,7 +12,7 @@ struct Compute
 		: swarm(16)
 	{
 		const uint32_t vec_size(100000000);
-		
+
 		vec1.resize(vec_size);
 		vec2.resize(vec_size);
 
@@ -28,25 +28,27 @@ struct Compute
 		const uint32_t step = data_size / worker_count;
 		const uint32_t start_index = worker_id * step;
 		const uint32_t end_index = (worker_id == worker_count - 1) ? data_size - 1 : start_index + step;
-		
+
 		const uint32_t filter_width(64);
 
 		for (uint32_t i(start_index); i < end_index; ++i) {
 			float value = 0.0f;
 			for (uint32_t k(0); k < filter_width; ++k) {
-				if (i >= filter_width/2) {
+				if (i >= filter_width / 2) {
 					value += vec1[i + k - filter_width / 2];
 				}
 			}
-			
+
 			vec2[i] = value / float(filter_width);
 		}
 	}
 
 	void sum()
 	{
-		swarm.execute([&](uint32_t worker_id, uint32_t worker_count) {job(worker_id, worker_count); });
-		swarm.waitExecutionDone();
+		swrm::WorkGroup group1 = swarm.execute([&](uint32_t worker_id, uint32_t worker_count) {job(worker_id, worker_count); }, 8);
+		swrm::WorkGroup group2 = swarm.execute([&](uint32_t worker_id, uint32_t worker_count) {job(worker_id, worker_count); }, 8);
+		group1.waitExecutionDone();
+		group2.waitExecutionDone();
 	}
 
 	swrm::Swarm swarm;
