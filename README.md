@@ -8,16 +8,18 @@ The function to execute with Swarm need to have this signature : `void(uint32_t,
 
 The first argument is the **executing thread's id** and the second is the **number of threads** currently working on the function.
 
-In order to wait for the funtion to end you need to call `waitExecutionDone`. This also allows you to run two Swarms on different functions **asynchronously**.
+When a function to execute is sent to Swarm, a `WorkGroup` object is returned.
+In order to wait for the funtion to end, `waitExecutionDone` has to be called on the `WorkGroup`. This also allows you to run two groups on different functions **asynchronously**.
 
 ```cpp
-swarm_1.execute(function_1);
-swarm_2.execute(function_2);
+uint32_t thread_count(4);
+WorkGroup group_1 = swarm.execute(function_1, 2);
+WorkGroup group_2 = swarm.execute(function_2, 2);
 
 // function_1 and function_2 are being processed at the same time
 
-swarm_1.waitExecutionDone();
-swarm_2.waitExecutionDone();
+group_1.waitExecutionDone();
+group_2.waitExecutionDone();
 ```
 
 ## Example
@@ -59,7 +61,7 @@ void job(uint32_t worker_id, uint32_t worker_count)
 // Create a Swarm object with 16 thread
 const uint32_t thread_count(16);
 swrm::Swarm swarm(thread_count);
-swarm.execute(job);
+swrm::WorkGroup group = swarm.execute(job, thread_count);
 ```
 
 ### Putting all together
@@ -96,9 +98,9 @@ int main()
     const uint32_t thread_count(16);
     swrm::Swarm swarm(thread_count);
     // Start parallel job
-    swarm.execute(job);
+    swrm::WorkGroup group = swarm.execute(job);
     // Wait for the job to terminate
-    swarm.waitExecutionDone();
+    group.waitExecutionDone();
   
     return 0;
 }
