@@ -9,6 +9,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <memory>
+#include <algorithm>
 
 #include "worker.hpp"
 #include "synchronizer.hpp"
@@ -18,6 +19,7 @@
 namespace swrm
 {
 
+// Handles workers
 class Swarm
 {
 public:
@@ -42,11 +44,21 @@ public:
 
 	WorkGroup execute(WorkerFunction job, uint32_t group_size)
 	{
-		if (group_size > m_available_workers.size()) {
-			return WorkGroup();
+		const uint32_t available_threads(m_available_workers.size());
+		
+		std::shared_ptr<ExecutionGroup> group(std::make_shared<ExecutionGroup>(job, group_size, m_available_workers));
+		uint32_t thread_to_add = std::min(group_size, available_threads);
+		for (uint32_t i(thread_to_add); i--;) {
+			group->addWorker(m_available_workers.front());
+			m_available_workers.pop_front();
 		}
 
-		return WorkGroup(std::make_unique<ExecutionGroup>(job, group_size, m_available_workers));
+		if (group_size > available_threads) {
+			std::cout << "Group " << &(*group) << " is missing threads." << std::endl;
+			m_waiting_threads.push_back(group);
+		}
+
+		return WorkGroup(group);
 	}
 
 
@@ -54,8 +66,9 @@ private:
 	const uint32_t m_thread_count;
 
 	std::atomic<uint32_t> m_ready_count;
-	std::list<Worker*>  m_workers;
-	std::list<Worker*>  m_available_workers;
+	std::list<Worker*>    m_workers;
+	std::list<Worker*>    m_available_workers;
+	std::list<std::shared_ptr<ExecutionGroup>> m_waiting_threads;
 	std::mutex m_mutex;
 
 	void createWorker()
@@ -77,6 +90,25 @@ private:
 		std::lock_guard<std::mutex> lg(m_mutex);
 		++m_ready_count;
 		m_available_workers.push_back(worker);
+	}
+
+	bool checkWaitingGroups(Worker* worker)
+	{
+		std::lock_guard<std::mutex> lg(m_mutex);
+		if (m_waiting_threads.empty()) {
+			return false;
+		}
+
+		std::shared_ptr<ExecutionGroup> group(m_waiting_threads.front());
+		if (group->isNeedingThreads()) {
+			std::cout << "Thread reaffected to " << &(*group) << std::endl;
+			group->addWorker(worker);
+		} else {
+			m_waiting_threads.pop_front();
+			return false;
+		}
+
+		return true;
 	}
 
 	friend Worker;

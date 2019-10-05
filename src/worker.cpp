@@ -12,6 +12,7 @@ Worker::Worker(Swarm* swarm)
 	, m_id(0)
 	, m_group_size(0)
 	, m_running(true)
+	, m_done(false)
 	, m_ready_mutex()
 	, m_done_mutex()
 {
@@ -26,6 +27,11 @@ void Worker::createThread()
 void Worker::run()
 {
 	while (true) {
+		/*if (!m_swarm->checkWaitingGroups(this)) {
+			waitReady();
+		}*/
+
+		m_swarm->checkWaitingGroups(this);
 		waitReady();
 
 		if (!m_running) {
@@ -76,8 +82,14 @@ void Worker::join()
 	m_thread.join();
 }
 
+bool Worker::isDone() const
+{
+	return m_done;
+}
+
 void Worker::waitReady()
 {
+	m_done = false;
 	m_swarm->notifyWorkerReady(this);
 	lockReady();
 	unlockReady();
@@ -85,6 +97,7 @@ void Worker::waitReady()
 
 void Worker::waitDone()
 {
+	m_done = true;
 	m_group->notifyWorkerDone();
 	lockDone();
 	unlockDone();

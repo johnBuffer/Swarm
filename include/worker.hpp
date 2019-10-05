@@ -29,12 +29,15 @@ public:
 	void stop();
 	void join();
 
+	bool isDone() const;
+
 private:
-	bool m_running;
+	bool     m_running;
+	bool     m_done;
 	uint32_t m_id;
 	uint32_t m_group_size;
 
-	Swarm* m_swarm;
+	Swarm*          m_swarm;
 	ExecutionGroup* m_group;
 	std::thread     m_thread;
 	WorkerFunction  m_job;

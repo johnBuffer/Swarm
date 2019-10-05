@@ -9,9 +9,9 @@
 struct Compute
 {
 	Compute()
-		: swarm(16)
+		: swarm(4)
 	{
-		const uint32_t vec_size(1000000);
+		const uint32_t vec_size(25);
 
 		vec1.resize(vec_size);
 		vec2.resize(vec_size);
@@ -45,9 +45,9 @@ struct Compute
 
 	void sum()
 	{
-		swrm::WorkGroup group1 = swarm.execute([&](uint32_t worker_id, uint32_t worker_count) {job(worker_id, worker_count); }, 16);
+		swrm::WorkGroup group1 = swarm.execute([&](uint32_t worker_id, uint32_t worker_count) {job(worker_id, worker_count); }, 4);
+		swrm::WorkGroup group2 = swarm.execute([&](uint32_t worker_id, uint32_t worker_count) {job(worker_id, worker_count); }, 2);
 		group1.waitExecutionDone();
-		swrm::WorkGroup group2 = swarm.execute([&](uint32_t worker_id, uint32_t worker_count) {job(worker_id, worker_count); }, 16);
 		group2.waitExecutionDone();
 	}
 

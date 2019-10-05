@@ -22,27 +22,37 @@ public:
 		, m_condition()
 		, m_condition_mutex()
 	{
-		retrieveWorkers(available_workers);
-		start();
+		//retrieveWorkers(available_workers);
+		//start();
 	}
 
 	~ExecutionGroup()
 	{
 	}
 
+	void addWorker(Worker* worker)
+	{
+		m_workers.push_back(worker);
+		worker->setJob(m_workers.size(), this);
+		worker->lockDone();
+		worker->unlockReady();
+	}
+
 	void start()
 	{
-		m_done_count = 0U;
-		Synchronizer::lockAtDone(m_workers);
-		Synchronizer::unlockAtReady(m_workers);
+		//m_done_count = 0U;
+		//Synchronizer::lockAtDone(m_workers);
+		//Synchronizer::unlockAtReady(m_workers);
+	}
+
+	uint32_t isNeedingThreads() const
+	{
+		return m_group_size > m_workers.size();
 	}
 
 	void waitExecutionDone()
 	{
 		waitWorkersDone();
-		Synchronizer::lockAtReady(m_workers);
-		Synchronizer::unlockAtDone(m_workers);
-		m_workers.clear();
 	}
 
 private:
@@ -56,17 +66,17 @@ private:
 
 	void notifyWorkerDone()
 	{
-		{
-			std::lock_guard<std::mutex> lg(m_condition_mutex);
-			++m_done_count;
-		}
+		std::lock_guard<std::mutex> lg(m_condition_mutex);
+		++m_done_count;
 		m_condition.notify_one();
 	}
 
 	void waitWorkersDone()
 	{
 		std::unique_lock<std::mutex> ul(m_condition_mutex);
-		m_condition.wait(ul, [this] { return m_done_count == m_group_size; });
+		m_condition.wait(ul, [&] { return m_done_count == m_group_size; });
+		Synchronizer::lockAtReady(m_workers);
+		Synchronizer::unlockAtDone(m_workers);
 	}
 
 	void retrieveWorkers(std::list<Worker*>& available_workers)
@@ -78,6 +88,22 @@ private:
 			m_workers.push_back(worker);
 		}
 	}
+
+	/*bool releaseDoneWorker()
+	{
+		//std::cout << lol << " is done. TOTAL: " << m_done_count << std::endl;
+		for (Worker* worker : m_workers) {
+			if (worker->isDone()) {
+				worker->lockReady();
+				worker->unlockDone();
+			}
+		}
+
+		m_workers.remove_if([&](Worker* w) {return w->isDone(); });
+		std::cout << "Remaining " << m_workers.size() << std::endl;
+
+		return m_workers.empty();
+	}*/
 
 	friend Worker;
 };
