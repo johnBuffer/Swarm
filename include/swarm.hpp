@@ -40,10 +40,14 @@ public:
 		deleteWorkers();
 	}
 
-	WorkGroup execute(WorkerFunction job, uint32_t group_size)
+	WorkGroup execute(WorkerFunction job, uint32_t group_size = 0)
 	{
 		if (group_size > m_available_workers.size()) {
 			return WorkGroup();
+		}
+
+		if (!group_size) {
+			group_size = m_thread_count;
 		}
 
 		return WorkGroup(std::make_unique<ExecutionGroup>(job, group_size, m_available_workers));

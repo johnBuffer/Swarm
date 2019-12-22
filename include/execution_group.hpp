@@ -98,8 +98,6 @@ public:
 	{
 		if (m_group) {
 			m_group->waitExecutionDone();
-		} else {
-			std::cout << "No threads" << std::endl;
 		}
 	}
 
