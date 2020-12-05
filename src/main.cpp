@@ -17,7 +17,7 @@ struct Compute
 		vec2.resize(vec_size);
 
 		for (uint32_t i(0); i < vec_size; ++i) {
-			vec1[i] = (rand() % 10);
+			vec1[i] = static_cast<float>(rand() % 10);
 		}
 
 	}
