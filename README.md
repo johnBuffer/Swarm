@@ -106,6 +106,15 @@ int main()
 }
 ```
 
+It is also possible to use a lambda instead of a pointer to a function
+```c++
+swrm::WorkGroup group = swarm.execute([&](uint32_t thread_id, uint32_t group_size){
+    /* 
+        The code here
+    */
+});
+```
+
 ## Performance
 
 1D naive mean filter on **100.000.000** values with a kernel width of **64** on an *i9-9900K*
