@@ -106,6 +106,9 @@ class Worker
 };
 
 
+// The Swarm class is the top level of the system
+// it allows to create a certain number of workers
+// and then let them run tasks
 class Swarm
 {
 private:
