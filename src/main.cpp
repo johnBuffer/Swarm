@@ -11,9 +11,10 @@ int32_t main()
 	std::vector<uint32_t> res(4);
 
 	swm::Swarm swarm(4);
-	swarm.execute([&](uint32_t thread_id, uint32_t threads_count) {
+	swarm.execute_async([&](uint32_t thread_id, uint32_t threads_count) {
 		res[thread_id] = thread_id;
 	});
+	swarm.waitForCompletion();
 
 	for (uint32_t i : res) {
 		std::cout << i << ' ';

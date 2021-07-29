@@ -18,6 +18,11 @@ struct Barrier
 		std::unique_lock<std::mutex> lock(mutex);
 		cv.wait(lock, predicate);
 	}
+
+	void notifyAll()
+	{
+		cv.notify_all();
+	}
 };
 
 
@@ -89,9 +94,7 @@ struct Worker
 		// Main loop
 		while (running) {
 			ready();
-			if (!running) {
-				return;
-			}
+			if (!running) { return; }
 			job(id, job_size);
 			done();
 		}
@@ -100,7 +103,12 @@ struct Worker
 	void ready()
 	{
 		swarm_state->counter_ready.add();
-		swarm_state->cv_ready.wait([this]() { return state == State::Running || !running; });
+		swarm_state->cv_ready.wait([this]() { return isRunning(); });
+	}
+
+	bool isRunning() const
+	{
+		return state == State::Running || !running;
 	}
 
 	void done()
@@ -124,12 +132,14 @@ struct Worker
 class Swarm
 {
 private:
-	SwarmState state;
-	std::vector<Worker> workers;
+	uint32_t            _workers_count;
+	SwarmState          _state;
+	std::vector<Worker> _workers;
 
 public:
-	Swarm(uint32_t threads_count)
-		: workers(threads_count)
+	Swarm(uint32_t workers_count)
+		: _workers_count(workers_count)
+		, _workers(workers_count)
 	{
 		initializeWorkers();
 	}
@@ -137,62 +147,75 @@ public:
 	~Swarm()
 	{
 		stopWorkers();
-		state.cv_ready.cv.notify_all();
-		for (Worker& w : workers) {
+		_state.cv_ready.cv.notify_all();
+		for (Worker& w : _workers) {
 			w.thread.join();
 		}
 	}
 
+	void execute_async(Worker::WorkerFunction f)
+	{
+		runJob(f);
+	}
+
 	void execute(Worker::WorkerFunction f)
 	{
-		const uint32_t workers_count = static_cast<uint32_t>(workers.size());
-		state.counter_done.reset();
+		execute_async(f);
+		waitForCompletion();
+		freeWorkers();
+	}
+
+	void runJob(Worker::WorkerFunction f)
+	{
+		_state.counter_done.reset();
 		setWorkersState(Worker::State::Running);
 		setWorkersJob(f);
-		state.cv_ready.cv.notify_all();
-		if (state.counter_done.count < workers_count) {
-			state.cv_swarm.wait([&]() { return state.counter_done.eq(workers_count); });
+		_state.cv_ready.notifyAll();
+	}
+
+	void waitForCompletion()
+	{
+		if (_state.counter_done.count < _workers_count) {
+			_state.cv_swarm.wait([&]() { return _state.counter_done.eq(_workers_count); });
 		}
+		freeWorkers();
+	}
+
+	void freeWorkers()
+	{
 		setWorkersState(Worker::State::Ready);
-		state.counter_ready.reset();
-		state.cv_done.cv.notify_all();
+		_state.counter_ready.reset();
+		_state.cv_done.notifyAll();
 	}
 
 private:
 	void initializeWorkers()
 	{
 		uint32_t id = 0;
-		for (Worker& w : workers) {
+		for (Worker& w : _workers) {
 			w.id = id++;
-			w.job_size = static_cast<uint32_t>(workers.size());
-			w.start(state);
+			w.job_size = static_cast<uint32_t>(_workers.size());
+			w.start(_state);
 		}
 	}
 
 	void stopWorkers()
 	{
-		for (Worker& w : workers) {
+		for (Worker& w : _workers) {
 			w.stop();
-		}
-	}
-
-	void foreachWorker(std::function<void(Worker&)> callback)
-	{
-		for (Worker& w : workers) {
-			callback(w);
 		}
 	}
 
 	void setWorkersState(Worker::State state)
 	{
-		for (Worker& w : workers) {
+		for (Worker& w : _workers) {
 			w.state = state;
 		}
 	}
 
 	void setWorkersJob(Worker::WorkerFunction job)
 	{
-		for (Worker& w : workers) {
+		for (Worker& w : _workers) {
 			w.job = job;
 		}
 	}
