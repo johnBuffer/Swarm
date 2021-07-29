@@ -53,16 +53,15 @@ struct SwarmState
 {
 	Counter counter_done;
 	Counter counter_ready;
-
 	Barrier cv_swarm;
 	Barrier cv_ready;
 	Barrier cv_done;
 };
 
 
-struct Worker
+class Worker
 {
-	using WorkerFunction = std::function<void(int32_t, int32_t)>;
+	using WorkerJob = std::function<void(int32_t, int32_t)>;
 	enum class State
 	{
 		Ready,
@@ -70,62 +69,62 @@ struct Worker
 		Done,
 	};
 
-	uint32_t id;
-	uint32_t job_size;
+	uint32_t    _id;
+	uint32_t    _job_size;
+	bool        _running = true;
+	State       _state;
+	SwarmState* _swarm_state;
+	std::thread _thread;
+	WorkerJob   _job;
 
-	bool running = true;
-	State state;
-	
-	SwarmState* swarm_state;
-	WorkerFunction job;
-
-	std::thread thread;
-
-	void start(SwarmState& swm_state)
+	void start(SwarmState& swarm_state)
 	{
 		// Retrieve state
-		swarm_state = &swm_state;
-		state = State::Ready;
-		thread = std::thread([this]() { run(); });
+		_swarm_state = &swarm_state;
+		// Initialize state and start thread
+		_state = State::Ready;
+		_thread = std::thread([this]() { run(); });
 	}
 
 	void run()
 	{
 		// Main loop
-		while (running) {
+		while (_running) {
 			ready();
-			if (!running) { return; }
-			job(id, job_size);
+			if (!_running) { return; }
+			_job(_id, _job_size);
 			done();
 		}
 	}
 
 	void ready()
 	{
-		swarm_state->counter_ready.add();
-		swarm_state->cv_ready.wait([this]() { return isRunning(); });
+		_swarm_state->counter_ready.add();
+		_swarm_state->cv_ready.wait([this]() { return isRunning(); });
 	}
 
 	bool isRunning() const
 	{
-		return state == State::Running || !running;
+		return _state == State::Running || !_running;
 	}
 
 	void done()
 	{
-		state = State::Done;
+		_state = State::Done;
 		// Increase the done counter
-		swarm_state->counter_done.add();
+		_swarm_state->counter_done.add();
 		// Notify the swarm manager to check done count
-		swarm_state->cv_swarm.cv.notify_one();
+		_swarm_state->cv_swarm.cv.notify_one();
 		// Wait for the others to finish
-		swarm_state->cv_done.wait([this]() { return state == State::Ready; });
+		_swarm_state->cv_done.wait([this]() { return _state == State::Ready; });
 	}
 
 	void stop()
 	{
-		running = false;
+		_running = false;
 	}
+
+	friend class Swarm;
 };
 
 
@@ -149,23 +148,23 @@ public:
 		stopWorkers();
 		_state.cv_ready.cv.notify_all();
 		for (Worker& w : _workers) {
-			w.thread.join();
+			w._thread.join();
 		}
 	}
 
-	void execute_async(Worker::WorkerFunction f)
+	void execute_async(Worker::WorkerJob f)
 	{
 		runJob(f);
 	}
 
-	void execute(Worker::WorkerFunction f)
+	void execute(Worker::WorkerJob f)
 	{
 		execute_async(f);
 		waitForCompletion();
 		freeWorkers();
 	}
 
-	void runJob(Worker::WorkerFunction f)
+	void runJob(Worker::WorkerJob f)
 	{
 		_state.counter_done.reset();
 		setWorkersState(Worker::State::Running);
@@ -175,6 +174,8 @@ public:
 
 	void waitForCompletion()
 	{
+		// This condition is here to ensure that we're not waiting forever
+		// if all jobs are done
 		if (_state.counter_done.count < _workers_count) {
 			_state.cv_swarm.wait([&]() { return _state.counter_done.eq(_workers_count); });
 		}
@@ -193,8 +194,8 @@ private:
 	{
 		uint32_t id = 0;
 		for (Worker& w : _workers) {
-			w.id = id++;
-			w.job_size = static_cast<uint32_t>(_workers.size());
+			w._id = id++;
+			w._job_size = static_cast<uint32_t>(_workers.size());
 			w.start(_state);
 		}
 	}
@@ -209,14 +210,14 @@ private:
 	void setWorkersState(Worker::State state)
 	{
 		for (Worker& w : _workers) {
-			w.state = state;
+			w._state = state;
 		}
 	}
 
-	void setWorkersJob(Worker::WorkerFunction job)
+	void setWorkersJob(Worker::WorkerJob job)
 	{
 		for (Worker& w : _workers) {
-			w.job = job;
+			w._job = job;
 		}
 	}
 };
