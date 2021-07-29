@@ -2,6 +2,7 @@
 #include <thread>
 #include <mutex>
 #include <functional>
+#include <atomic>
 
 
 namespace swm
@@ -26,33 +27,10 @@ struct Barrier
 };
 
 
-struct Counter
-{
-	std::mutex mutex;
-	uint32_t count = 0;
-
-	void reset()
-	{
-		count = 0;
-	}
-
-	bool eq(uint32_t value) const
-	{
-		return count == value;
-	}
-
-	void add()
-	{
-		std::lock_guard<std::mutex> lock(mutex);
-		++count;
-	}
-};
-
-
 struct SwarmState
 {
-	Counter counter_done;
-	Counter counter_ready;
+	std::atomic_uint32_t counter_done;
+	std::atomic_uint32_t counter_ready;
 	Barrier cv_swarm;
 	Barrier cv_ready;
 	Barrier cv_done;
@@ -99,7 +77,7 @@ class Worker
 
 	void ready()
 	{
-		_swarm_state->counter_ready.add();
+		++_swarm_state->counter_ready;
 		_swarm_state->cv_ready.wait([this]() { return isRunning(); });
 	}
 
@@ -112,7 +90,7 @@ class Worker
 	{
 		_state = State::Done;
 		// Increase the done counter
-		_swarm_state->counter_done.add();
+		++_swarm_state->counter_done;
 		// Notify the swarm manager to check done count
 		_swarm_state->cv_swarm.cv.notify_one();
 		// Wait for the others to finish
@@ -166,7 +144,7 @@ public:
 
 	void runJob(Worker::WorkerJob f)
 	{
-		_state.counter_done.reset();
+		_state.counter_done = 0;
 		setWorkersState(Worker::State::Running);
 		setWorkersJob(f);
 		_state.cv_ready.notifyAll();
@@ -176,8 +154,8 @@ public:
 	{
 		// This condition is here to ensure that we're not waiting forever
 		// if all jobs are done
-		if (_state.counter_done.count < _workers_count) {
-			_state.cv_swarm.wait([&]() { return _state.counter_done.eq(_workers_count); });
+		if (_state.counter_done < _workers_count) {
+			_state.cv_swarm.wait([&]() { return _state.counter_done == _workers_count; });
 		}
 		freeWorkers();
 	}
@@ -185,7 +163,7 @@ public:
 	void freeWorkers()
 	{
 		setWorkersState(Worker::State::Ready);
-		_state.counter_ready.reset();
+		_state.counter_ready = 0;
 		_state.cv_done.notifyAll();
 	}
 
