@@ -74,13 +74,24 @@ struct Worker
 	SwarmState* swarm_state;
 	WorkerFunction job;
 
-	void run(SwarmState& swm_state)
+	std::thread thread;
+
+	void start(SwarmState& swm_state)
 	{
 		// Retrieve state
 		swarm_state = &swm_state;
-		// Start the main loop
+		state = State::Ready;
+		thread = std::thread([this]() { run(); });
+	}
+
+	void run()
+	{
+		// Main loop
 		while (running) {
 			ready();
+			if (!running) {
+				return;
+			}
 			job(id, job_size);
 			done();
 		}
@@ -89,7 +100,7 @@ struct Worker
 	void ready()
 	{
 		swarm_state->counter_ready.add();
-		swarm_state->cv_ready.wait([this]() { return state == State::Running; });
+		swarm_state->cv_ready.wait([this]() { return state == State::Running || !running; });
 	}
 
 	void done()
@@ -112,36 +123,77 @@ struct Worker
 
 class Swarm
 {
+private:
 	SwarmState state;
 	std::vector<Worker> workers;
 
+public:
 	Swarm(uint32_t threads_count)
 		: workers(threads_count)
 	{
 		initializeWorkers();
 	}
 
+	~Swarm()
+	{
+		stopWorkers();
+		state.cv_ready.cv.notify_all();
+		for (Worker& w : workers) {
+			w.thread.join();
+		}
+	}
+
 	void execute(Worker::WorkerFunction f)
 	{
 		const uint32_t workers_count = static_cast<uint32_t>(workers.size());
 		state.counter_done.reset();
-		for (Worker& w : workers) {
-			w.state = Worker::State::Running;
-		}
+		setWorkersState(Worker::State::Running);
+		setWorkersJob(f);
 		state.cv_ready.cv.notify_all();
 		if (state.counter_done.count < workers_count) {
 			state.cv_swarm.wait([&]() { return state.counter_done.eq(workers_count); });
 		}
+		setWorkersState(Worker::State::Ready);
+		state.counter_ready.reset();
+		state.cv_done.cv.notify_all();
 	}
 
+private:
 	void initializeWorkers()
 	{
 		uint32_t id = 0;
 		for (Worker& w : workers) {
-			w.state = Worker::State::Ready;
 			w.id = id++;
 			w.job_size = static_cast<uint32_t>(workers.size());
-			w.run(state);
+			w.start(state);
+		}
+	}
+
+	void stopWorkers()
+	{
+		for (Worker& w : workers) {
+			w.stop();
+		}
+	}
+
+	void foreachWorker(std::function<void(Worker&)> callback)
+	{
+		for (Worker& w : workers) {
+			callback(w);
+		}
+	}
+
+	void setWorkersState(Worker::State state)
+	{
+		for (Worker& w : workers) {
+			w.state = state;
+		}
+	}
+
+	void setWorkersJob(Worker::WorkerFunction job)
+	{
+		for (Worker& w : workers) {
+			w.job = job;
 		}
 	}
 };
